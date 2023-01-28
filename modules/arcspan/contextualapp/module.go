@@ -3,11 +3,12 @@ package contextualapp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
+	"github.com/golang/glog"
 	"github.com/prebid/openrtb/v17/openrtb2"
 	"github.com/prebid/prebid-server/hooks/hookstage"
 	"github.com/prebid/prebid-server/modules/moduledeps"
@@ -24,60 +25,67 @@ func (m Module) HandleProcessedAuctionHook(
 	miCtx hookstage.ModuleInvocationContext,
 	payload hookstage.ProcessedAuctionRequestPayload,
 ) (hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload], error) {
-	log.Println("ARCSPAN:: Processed Auction Hook!!!")
-	changeSet := hookstage.ChangeSet[hookstage.ProcessedAuctionRequestPayload]{}
-	site := fetchContextual(payload)
-	if site != nil {
-		changeSet.AddMutation(func(payload hookstage.ProcessedAuctionRequestPayload) (hookstage.ProcessedAuctionRequestPayload, error) {
-			payload.BidRequest.Site = site
-			return payload, nil
-		}, hookstage.MutationUpdate, "bidrequest", "site")
+	glog.Info("ARCSPAN:: Processed Auction Hook | Start")
+	result := hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload]{}
+	var arcAccount ArcAccount
+	if err := json.Unmarshal(miCtx.AccountConfig, &arcAccount); err != nil {
+		return result, errors.New("ARCSPAN:: Processed Auction Hook | Error reading account information (" + err.Error() + ")")
 	}
-	result := hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload]{ChangeSet: changeSet}
+	if arcAccount.Silo == "" {
+		return result, errors.New("ARCSPAN:: Processed Auction Hook | Invalid silo ID provided")
+	}
+	glog.Infof("ARCSPAN:: Processed Auction Hook | Silo %s", arcAccount.Silo)
+	// TODO: Do something with silo ID
+	site, err := fetchContextual(payload)
+	if err != nil {
+		return result, err
+	}
+	changeSet := hookstage.ChangeSet[hookstage.ProcessedAuctionRequestPayload]{}
+	changeSet.AddMutation(func(payload hookstage.ProcessedAuctionRequestPayload) (hookstage.ProcessedAuctionRequestPayload, error) {
+		payload.BidRequest.Site = site
+		return payload, nil
+	}, hookstage.MutationUpdate, "bidrequest", "site")
+	result.ChangeSet = changeSet
+	glog.Info("ARCSPAN:: Processed Auction Hook | End")
+
 	return result, nil
 }
 
-func fetchContextual(payload hookstage.ProcessedAuctionRequestPayload) *openrtb2.Site {
+func fetchContextual(payload hookstage.ProcessedAuctionRequestPayload) (*openrtb2.Site, error) {
 	var hasSite bool = payload.BidRequest.Site != nil
 	if !hasSite {
-		log.Println("ARCSPAN:: No site oject included in request. Unable to add contextual data.")
-		return nil
+		return nil, errors.New("ARCSPAN:: Processed Auction Hook | No site oject included in request. Unable to add contextual data")
 	}
 	var hasPage bool = payload.BidRequest.Site.Page != ""
 	if !hasPage {
-		log.Println("ARCSPAN:: Site object does not contain a page url. Unable to add contextual data.")
-		return nil
+		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Site object does not contain a page url. Unable to add contextual data")
 	}
 	var url string = "https://dwy889uqoaft4.cloudfront.net/3333444jj?uri=" + payload.BidRequest.Site.Page
-	resp, err := http.Get(url) // TODO: Add appropriate timeout to this call?
+	resp, err := http.Get(url) // TODO: Add appropriate timeout to this call
 	if err != nil {
-		log.Println("ARCSPAN:: Encountered network error fetching contextual information.")
-		return nil
+		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Encountered network error fetching contextual information")
 	}
 	defer resp.Body.Close()
-	arcObject := processResponse(resp)
-	if arcObject == nil {
-		return nil
+	arcObject, err := processResponse(resp)
+	if err != nil {
+		return nil, err
 	}
 	site := augmentPayload(*arcObject, payload)
-	return &site
+	return &site, nil
 }
 
-func processResponse(response *http.Response) *ArcObject {
+func processResponse(response *http.Response) (*ArcObject, error) {
 	if response.StatusCode != http.StatusOK {
-		log.Println("ARCSPAN:: Received unknown status code (", response.StatusCode, ")")
-		return nil
+		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Received unknown status code (" + string(response.StatusCode) + ")")
 	}
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Println("ARCSPAN:: Error reading response (", err.Error(), ")")
-		return nil
+		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Error downloading response (" + err.Error() + ")")
 	}
-	log.Printf("ARCSPAN:: Cloudfront Response: %s\n", body)
+	glog.Infof("ARCSPAN:: Processed Auction Hook | Cloudfront Response: %s\n", body)
 	var arcObject ArcObject
 	if err := json.Unmarshal(body[13:len(body)-1], &arcObject); err != nil {
-		log.Println("ARCSPAN:: Error unmarshaling response (", err.Error(), ")")
-		return nil
+		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Error parsing response (" + err.Error() + ")")
 	}
 
 	/*
@@ -101,7 +109,7 @@ func processResponse(response *http.Response) *ArcObject {
 	   }
 	*/
 
-	return &arcObject
+	return &arcObject, nil
 }
 
 func augmentPayload(arcObject ArcObject, payload hookstage.ProcessedAuctionRequestPayload) openrtb2.Site {
@@ -166,13 +174,21 @@ func (m Module) HandleBidderRequestHook(
 	miCtx hookstage.ModuleInvocationContext,
 	payload hookstage.BidderRequestPayload,
 ) (hookstage.HookResult[hookstage.BidderRequestPayload], error) {
-	log.Println("ARCSPAN:: Bidder Request Hook!!!")
-	if json, err := json.Marshal(payload.BidRequest.Site); err == nil {
-		log.Println("ARCSPAN:: Bidder Request Site (", string(json), ")")
-	} else {
-		log.Println("ARCSPAN:: Error marshalling site (", err.Error(), ")")
-	}
+	glog.Info("ARCSPAN:: Bidder Request Hook | Start")
 	result := hookstage.HookResult[hookstage.BidderRequestPayload]{}
+	var arcAccount ArcAccount
+	if err := json.Unmarshal(miCtx.AccountConfig, &arcAccount); err != nil {
+		return result, errors.New("ARCSPAN:: Bidder Request Hook | Error reading account information (" + err.Error() + ")")
+	}
+	if arcAccount.Silo == "" {
+		return result, errors.New("ARCSPAN:: Bidder Request Hook | Invalid silo ID provided")
+	}
+	if json, err := json.Marshal(payload.BidRequest.Site); err == nil {
+		glog.Info("ARCSPAN:: Bidder Request Hook | Bidder Request Site (", string(json), ")")
+	} else {
+		glog.Info("ARCSPAN:: Bidder Request Hook | Error marshalling site (", err.Error(), ")")
+	}
+	glog.Info("ARCSPAN:: Bidder Request Hook | End")
 	return result, nil
 }
 
@@ -185,4 +201,8 @@ type ArcObject struct {
 	Raw      *ArcCodes `json:"raw"`
 	Codes    *ArcCodes `json:"codes"`
 	NewCodes *ArcCodes `json:"newCodes"`
+}
+
+type ArcAccount struct {
+	Silo string `json:"silo"`
 }
