@@ -13,7 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testConfig = json.RawMessage(`
+var invalidConfig = json.RawMessage(`{
+
+}
+`)
+
+var validConfig = json.RawMessage(`
 {
 	"silo":"21"
 }
@@ -29,12 +34,66 @@ func TestHandleProcessedAuctionHook(t *testing.T) {
 		expectedError      error
 	}{
 		{
-			description:        "Bid Request with no Site object.",
-			config:             testConfig,
+			description:        "Invalid config",
+			config:             invalidConfig,
+			bidRequest:         &openrtb2.BidRequest{},
+			expectedBidRequest: &openrtb2.BidRequest{},
+			expectedHookResult: hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload]{},
+			expectedError:      errors.New("ARCSPAN:: Processed Auction Hook | Invalid silo ID provided"),
+		},
+		{
+			description:        "Bid Request with no Site object",
+			config:             validConfig,
 			bidRequest:         &openrtb2.BidRequest{},
 			expectedBidRequest: &openrtb2.BidRequest{},
 			expectedHookResult: hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload]{},
 			expectedError:      errors.New("ARCSPAN:: Processed Auction Hook | No site oject included in request. Unable to add contextual data"),
+		},
+		{
+			description: "Bid Request with no page URL",
+			config:      validConfig,
+			bidRequest: &openrtb2.BidRequest{
+				Site: &openrtb2.Site{},
+			},
+			expectedBidRequest: &openrtb2.BidRequest{
+				Site: &openrtb2.Site{},
+			},
+			expectedHookResult: hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload]{},
+			expectedError:      errors.New("ARCSPAN:: Processed Auction Hook | Site object does not contain a page url. Unable to add contextual data"),
+		},
+		{
+			// TODO: Pull from Mock Server
+			description: "Valid Bid Request",
+			config:      validConfig,
+			bidRequest: &openrtb2.BidRequest{
+				Site: &openrtb2.Site{
+					Page: "https://sportsnaut.com/dallas-cowboys-vs-tampa-bay-buccaneers-preview/",
+				},
+			},
+			expectedBidRequest: &openrtb2.BidRequest{
+				Site: &openrtb2.Site{
+					Page:       "https://sportsnaut.com/dallas-cowboys-vs-tampa-bay-buccaneers-preview/",
+					Name:       "arcspan",
+					Cat:        []string{"IAB17", "IAB17-44"},
+					SectionCat: []string{"IAB17", "IAB17-44"},
+					PageCat:    []string{"IAB17", "IAB17-44"},
+					Keywords:   "Sports,Sports>Soccer",
+					Content: &openrtb2.Content{
+						Data: []openrtb2.Data{
+							{
+								Name: "arcspan",
+								Segment: []openrtb2.Segment{
+									{ID: "483"},
+									{ID: "533"},
+								},
+								Ext: json.RawMessage(`{ "segtax": 6 }`),
+							},
+						},
+					},
+				},
+			},
+			expectedHookResult: hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload]{},
+			expectedError:      nil,
 		},
 	}
 
@@ -64,7 +123,7 @@ func TestHandleProcessedAuctionHook(t *testing.T) {
 				_, err := mut.Apply(payload)
 				assert.NoError(t, err)
 			}
-			assert.Equal(t, test.expectedBidRequest, payload.BidRequest, "Invalid BidRequest after executing BidderRequestHook.")
+			assert.Equal(t, test.expectedBidRequest, payload.BidRequest, "Invalid BidRequest after executing ProcessedAuctionHook.")
 
 			// reset ChangeSet not to break hookResult assertion, we validated ChangeSet separately
 			hookResult.ChangeSet = hookstage.ChangeSet[hookstage.ProcessedAuctionRequestPayload]{}

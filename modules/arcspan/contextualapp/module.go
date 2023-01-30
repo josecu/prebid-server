@@ -89,8 +89,8 @@ func processResponse(response *http.Response) (*ArcObject, error) {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Error parsing response (" + err.Error() + ")")
 	}
 
+	// TODO: What was the purpose behind this code? Why is this done sometimes and not other times?
 	/*
-	   What was the purpose behind this code? Why is this done sometimes and not other times?
 	   if (obj.getCodes() != null) {
 	       if (obj.getCodes().getImages() != null) {
 	           List<String> newImages = new ArrayList<String>();
@@ -170,6 +170,7 @@ func augmentPayload(arcObject ArcObject, payload hookstage.ProcessedAuctionReque
 	return *site
 }
 
+// TODO: Remove this hook before submitting for approval
 func (m Module) HandleBidderRequestHook(
 	_ context.Context,
 	miCtx hookstage.ModuleInvocationContext,
