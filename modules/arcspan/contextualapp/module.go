@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -76,7 +77,7 @@ func fetchContextual(payload hookstage.ProcessedAuctionRequestPayload) (*openrtb
 
 func processResponse(response *http.Response) (*ArcObject, error) {
 	if response.StatusCode != http.StatusOK {
-		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Received unknown status code (" + string(response.StatusCode) + ")")
+		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Received unknown status code (" + fmt.Sprint(response.StatusCode) + ")")
 	}
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
