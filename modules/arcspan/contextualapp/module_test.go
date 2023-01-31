@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/prebid/openrtb/v17/openrtb2"
@@ -62,7 +64,6 @@ func TestHandleProcessedAuctionHook(t *testing.T) {
 			expectedError:      errors.New("ARCSPAN:: Processed Auction Hook | Site object does not contain a page url. Unable to add contextual data"),
 		},
 		{
-			// TODO: Pull from Mock Server
 			description: "Valid Bid Request",
 			config:      validConfig,
 			bidRequest: &openrtb2.BidRequest{
@@ -77,7 +78,7 @@ func TestHandleProcessedAuctionHook(t *testing.T) {
 					Cat:        []string{"IAB17", "IAB17-44"},
 					SectionCat: []string{"IAB17", "IAB17-44"},
 					PageCat:    []string{"IAB17", "IAB17-44"},
-					Keywords:   "Sports,Sports>Soccer",
+					Keywords:   "Sports>Soccer,Sports>Football",
 					Content: &openrtb2.Content{
 						Data: []openrtb2.Data{
 							{
@@ -101,7 +102,17 @@ func TestHandleProcessedAuctionHook(t *testing.T) {
 		t.Run(test.description, func(t *testing.T) {
 			payload := hookstage.ProcessedAuctionRequestPayload{BidRequest: test.bidRequest}
 
-			result, err := Builder(nil, moduledeps.ModuleDeps{})
+			stubHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(200)
+				b := []byte("aspan.setIAB({\"raw\": {\"text\": [\"Sports>Soccer\", \"Sports>Football\"]}, \"codes\": {\"text\": [\"IAB17\", \"IAB17-44\"]}, \"newcodes\": {\"text\": [\"483\", \"533\"]}})")
+				w.Write(b)
+			})
+			stubServer := httptest.NewServer(stubHandler)
+			defer stubServer.Close()
+
+			config := json.RawMessage("{\"enabled\":true,\"endpoint\":\"" + stubServer.URL + "\"}")
+
+			result, err := Builder(config, moduledeps.ModuleDeps{})
 			assert.NoError(t, err, "Failed to build module.")
 
 			module, ok := result.(Module)

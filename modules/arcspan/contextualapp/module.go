@@ -15,7 +15,22 @@ import (
 	"github.com/prebid/prebid-server/modules/moduledeps"
 )
 
+// This could go in a ArcSpan module YAML config if/when modules support YAML config files
+const arcspanEndpoint = "https://dwy889uqoaft4.cloudfront.net/3333444jj"
+
+var endpoint string
+
 func Builder(config json.RawMessage, deps moduledeps.ModuleDeps) (interface{}, error) {
+	endpoint = arcspanEndpoint
+	if config != nil {
+		var arcGlobalConfig ArcGlobalConfig
+		if err := json.Unmarshal(config, &arcGlobalConfig); err != nil {
+			glog.Error("ARCSPAN:: Error reading from global config (" + err.Error() + ")")
+		}
+		if arcGlobalConfig.Endpoint != "" {
+			endpoint = arcGlobalConfig.Endpoint
+		}
+	}
 	return Module{}, nil
 }
 
@@ -61,7 +76,7 @@ func fetchContextual(payload hookstage.ProcessedAuctionRequestPayload) (*openrtb
 	if !hasPage {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Site object does not contain a page url. Unable to add contextual data")
 	}
-	var url string = "https://dwy889uqoaft4.cloudfront.net/3333444jj?uri=" + payload.BidRequest.Site.Page
+	var url string = endpoint + "?uri=" + payload.BidRequest.Site.Page
 	resp, err := http.Get(url) // TODO: Add appropriate timeout to this call
 	if err != nil {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Encountered network error fetching contextual information")
@@ -207,4 +222,8 @@ type ArcObject struct {
 
 type ArcAccount struct {
 	Silo string `json:"silo"`
+}
+
+type ArcGlobalConfig struct {
+	Endpoint string `json:"endpoint"`
 }
