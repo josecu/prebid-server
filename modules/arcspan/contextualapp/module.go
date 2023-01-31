@@ -16,6 +16,7 @@ import (
 )
 
 // This could go in a ArcSpan module YAML config if/when modules support YAML config files
+// TODO: Implement silo-specific endpoint
 const arcspanEndpoint = "https://dwy889uqoaft4.cloudfront.net/3333444jj"
 
 var endpoint string
