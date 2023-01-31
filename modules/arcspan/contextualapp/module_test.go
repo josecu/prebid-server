@@ -147,7 +147,7 @@ func TestHandleProcessedAuctionHook(t *testing.T) {
 
 			stubHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(200)
-				b := []byte("aspan.setIAB({\"raw\": {\"text\": [\"Sports>Soccer\", \"Sports>Football\"]}, \"codes\": {\"text\": [\"IAB17\", \"IAB17-44\"]}, \"newcodes\": {\"text\": [\"483\", \"533\"]}})")
+				b := []byte("{\"raw\": {\"text\": [\"Sports>Soccer\", \"Sports>Football\"]}, \"codes\": {\"text\": [\"IAB17\", \"IAB17-44\"]}, \"newcodes\": {\"text\": [\"483\", \"533\"]}}")
 				w.Write(b)
 			})
 			stubServer := httptest.NewServer(stubHandler)

@@ -17,7 +17,7 @@ import (
 
 // This could go in a ArcSpan module YAML config if/when modules support YAML config files
 // TODO: Implement silo-specific endpoint
-const arcspanEndpoint = "https://dwy889uqoaft4.cloudfront.net/3333444jj"
+const arcspanEndpoint = "http://pbs{{.SILO}}.p7cloud.net/ctx"
 
 var endpoint string
 
@@ -52,8 +52,7 @@ func (m Module) HandleProcessedAuctionHook(
 		return result, errors.New("ARCSPAN:: Processed Auction Hook | Invalid silo ID provided")
 	}
 	glog.Infof("ARCSPAN:: Processed Auction Hook | Silo %s", arcAccount.Silo)
-	// TODO: Do something with silo ID
-	site, err := fetchContextual(payload)
+	site, err := fetchContextual(payload, arcAccount.Silo)
 	if err != nil {
 		return result, err
 	}
@@ -68,7 +67,7 @@ func (m Module) HandleProcessedAuctionHook(
 	return result, nil
 }
 
-func fetchContextual(payload hookstage.ProcessedAuctionRequestPayload) (*openrtb2.Site, error) {
+func fetchContextual(payload hookstage.ProcessedAuctionRequestPayload, silo string) (*openrtb2.Site, error) {
 	var hasSite bool = payload.BidRequest.Site != nil
 	if !hasSite {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | No site oject included in request. Unable to add contextual data")
@@ -77,7 +76,8 @@ func fetchContextual(payload hookstage.ProcessedAuctionRequestPayload) (*openrtb
 	if !hasPage {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Site object does not contain a page url. Unable to add contextual data")
 	}
-	var url string = endpoint + "?uri=" + payload.BidRequest.Site.Page
+	var url string = strings.Replace(endpoint, "{{.SILO}}", silo, 1) + "?format=json&uri=" + payload.BidRequest.Site.Page
+	glog.Info("ARCSPAN:: Fetching contextual information from " + url)
 	resp, err := http.Get(url) // TODO: Add appropriate timeout to this call
 	if err != nil {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Encountered network error fetching contextual information")
@@ -101,7 +101,7 @@ func processResponse(response *http.Response) (*ArcObject, error) {
 	}
 	glog.Infof("ARCSPAN:: Processed Auction Hook | Cloudfront Response: %s\n", body)
 	var arcObject ArcObject
-	if err := json.Unmarshal(body[13:len(body)-1], &arcObject); err != nil {
+	if err := json.Unmarshal(body, &arcObject); err != nil {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Error parsing response (" + err.Error() + ")")
 	}
 
