@@ -16,7 +16,6 @@ import (
 )
 
 // This could go in a ArcSpan module YAML config if/when modules support YAML config files
-// TODO: Implement silo-specific endpoint
 const arcspanEndpoint = "http://pbs{{.SILO}}.p7cloud.net/ctx"
 
 var endpoint string
@@ -104,28 +103,6 @@ func processResponse(response *http.Response) (*ArcObject, error) {
 	if err := json.Unmarshal(body, &arcObject); err != nil {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Error parsing response (" + err.Error() + ")")
 	}
-
-	// TODO: What was the purpose behind this code? Why is this done sometimes and not other times?
-	/*
-	   if (obj.getCodes() != null) {
-	       if (obj.getCodes().getImages() != null) {
-	           List<String> newImages = new ArrayList<String>();
-	           for (String code : obj.getCodes().getImages()) {
-	               newImages.add(code.replaceAll("-", "_"));
-	           }
-	           obj.getCodes().setImages(newImages);
-	       }
-
-	       if (obj.getCodes().getText() != null) {
-	           List<String> newText = new ArrayList<String>();
-	           for (String code : obj.getCodes().getText()) {
-	               newText.add(code.replaceAll("-", "_"));
-	           }
-	           obj.getCodes().setText(newText);
-	       }
-	   }
-	*/
-
 	return &arcObject, nil
 }
 
@@ -185,30 +162,6 @@ func augmentPayload(arcObject ArcObject, payload hookstage.ProcessedAuctionReque
 
 	return *site
 }
-
-// // TODO: Remove this hook before submitting for approval
-// func (m Module) HandleBidderRequestHook(
-// 	_ context.Context,
-// 	miCtx hookstage.ModuleInvocationContext,
-// 	payload hookstage.BidderRequestPayload,
-// ) (hookstage.HookResult[hookstage.BidderRequestPayload], error) {
-// 	glog.Info("ARCSPAN:: Bidder Request Hook | Start")
-// 	result := hookstage.HookResult[hookstage.BidderRequestPayload]{}
-// 	var arcAccount ArcAccount
-// 	if err := json.Unmarshal(miCtx.AccountConfig, &arcAccount); err != nil {
-// 		return result, errors.New("ARCSPAN:: Bidder Request Hook | Error reading account information (" + err.Error() + ")")
-// 	}
-// 	if arcAccount.Silo == "" {
-// 		return result, errors.New("ARCSPAN:: Bidder Request Hook | Invalid silo ID provided")
-// 	}
-// 	if json, err := json.Marshal(payload.BidRequest.Site); err == nil {
-// 		glog.Info("ARCSPAN:: Bidder Request Hook | Bidder Request Site (", string(json), ")")
-// 	} else {
-// 		glog.Info("ARCSPAN:: Bidder Request Hook | Error marshalling site (", err.Error(), ")")
-// 	}
-// 	glog.Info("ARCSPAN:: Bidder Request Hook | End")
-// 	return result, nil
-// }
 
 type ArcCodes struct {
 	Images []string `json:"images"`
