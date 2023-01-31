@@ -77,7 +77,7 @@ func fetchContextual(payload hookstage.ProcessedAuctionRequestPayload, silo stri
 	}
 	var url string = strings.Replace(endpoint, "{{.SILO}}", silo, 1) + "?format=json&uri=" + payload.BidRequest.Site.Page
 	glog.Info("ARCSPAN:: Fetching contextual information from " + url)
-	resp, err := http.Get(url) // TODO: Add appropriate timeout to this call
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, errors.New("ARCSPAN:: Processed Auction Hook | Encountered network error fetching contextual information")
 	}
