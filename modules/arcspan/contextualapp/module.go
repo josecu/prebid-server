@@ -185,29 +185,29 @@ func augmentPayload(arcObject ArcObject, payload hookstage.ProcessedAuctionReque
 	return *site
 }
 
-// TODO: Remove this hook before submitting for approval
-func (m Module) HandleBidderRequestHook(
-	_ context.Context,
-	miCtx hookstage.ModuleInvocationContext,
-	payload hookstage.BidderRequestPayload,
-) (hookstage.HookResult[hookstage.BidderRequestPayload], error) {
-	glog.Info("ARCSPAN:: Bidder Request Hook | Start")
-	result := hookstage.HookResult[hookstage.BidderRequestPayload]{}
-	var arcAccount ArcAccount
-	if err := json.Unmarshal(miCtx.AccountConfig, &arcAccount); err != nil {
-		return result, errors.New("ARCSPAN:: Bidder Request Hook | Error reading account information (" + err.Error() + ")")
-	}
-	if arcAccount.Silo == "" {
-		return result, errors.New("ARCSPAN:: Bidder Request Hook | Invalid silo ID provided")
-	}
-	if json, err := json.Marshal(payload.BidRequest.Site); err == nil {
-		glog.Info("ARCSPAN:: Bidder Request Hook | Bidder Request Site (", string(json), ")")
-	} else {
-		glog.Info("ARCSPAN:: Bidder Request Hook | Error marshalling site (", err.Error(), ")")
-	}
-	glog.Info("ARCSPAN:: Bidder Request Hook | End")
-	return result, nil
-}
+// // TODO: Remove this hook before submitting for approval
+// func (m Module) HandleBidderRequestHook(
+// 	_ context.Context,
+// 	miCtx hookstage.ModuleInvocationContext,
+// 	payload hookstage.BidderRequestPayload,
+// ) (hookstage.HookResult[hookstage.BidderRequestPayload], error) {
+// 	glog.Info("ARCSPAN:: Bidder Request Hook | Start")
+// 	result := hookstage.HookResult[hookstage.BidderRequestPayload]{}
+// 	var arcAccount ArcAccount
+// 	if err := json.Unmarshal(miCtx.AccountConfig, &arcAccount); err != nil {
+// 		return result, errors.New("ARCSPAN:: Bidder Request Hook | Error reading account information (" + err.Error() + ")")
+// 	}
+// 	if arcAccount.Silo == "" {
+// 		return result, errors.New("ARCSPAN:: Bidder Request Hook | Invalid silo ID provided")
+// 	}
+// 	if json, err := json.Marshal(payload.BidRequest.Site); err == nil {
+// 		glog.Info("ARCSPAN:: Bidder Request Hook | Bidder Request Site (", string(json), ")")
+// 	} else {
+// 		glog.Info("ARCSPAN:: Bidder Request Hook | Error marshalling site (", err.Error(), ")")
+// 	}
+// 	glog.Info("ARCSPAN:: Bidder Request Hook | End")
+// 	return result, nil
+// }
 
 type ArcCodes struct {
 	Images []string `json:"images"`

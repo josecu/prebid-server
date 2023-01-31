@@ -96,6 +96,49 @@ func TestHandleProcessedAuctionHook(t *testing.T) {
 			expectedHookResult: hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload]{},
 			expectedError:      nil,
 		},
+		{
+			description: "Valid Bid Request With Existing Content and Data",
+			config:      validConfig,
+			bidRequest: &openrtb2.BidRequest{
+				Site: &openrtb2.Site{
+					Page: "https://sportsnaut.com/dallas-cowboys-vs-tampa-bay-buccaneers-preview/",
+					Content: &openrtb2.Content{
+						Data: []openrtb2.Data{
+							{
+								Name: "othervendor",
+							},
+						},
+					},
+				},
+			},
+			expectedBidRequest: &openrtb2.BidRequest{
+				Site: &openrtb2.Site{
+					Page:       "https://sportsnaut.com/dallas-cowboys-vs-tampa-bay-buccaneers-preview/",
+					Name:       "arcspan",
+					Cat:        []string{"IAB17", "IAB17-44"},
+					SectionCat: []string{"IAB17", "IAB17-44"},
+					PageCat:    []string{"IAB17", "IAB17-44"},
+					Keywords:   "Sports>Soccer,Sports>Football",
+					Content: &openrtb2.Content{
+						Data: []openrtb2.Data{
+							{
+								Name: "othervendor",
+							},
+							{
+								Name: "arcspan",
+								Segment: []openrtb2.Segment{
+									{ID: "483"},
+									{ID: "533"},
+								},
+								Ext: json.RawMessage(`{ "segtax": 6 }`),
+							},
+						},
+					},
+				},
+			},
+			expectedHookResult: hookstage.HookResult[hookstage.ProcessedAuctionRequestPayload]{},
+			expectedError:      nil,
+		},
 	}
 
 	for _, test := range testCases {
